@@ -6,6 +6,7 @@ name := "todo"
 version := "0.1"
 scalaVersion := "2.12.10"
 resolvers += Resolver.sonatypeRepo("releases")
+scalacOptions += "-Ypartial-unification"
 libraryDependencies ++= Seq(
 
   "org.typelevel"  %% "cats-core"            % catsVersion,
