@@ -6,7 +6,7 @@ name := "todo"
 version := "0.1"
 scalaVersion := "2.12.10"
 resolvers += Resolver.sonatypeRepo("releases")
-scalacOptions += "-Ypartial-unification"
+//scalacOptions += "-Ypartial-unification"
 libraryDependencies ++= Seq(
 
   "org.typelevel"  %% "cats-core"            % catsVersion,
@@ -21,5 +21,7 @@ libraryDependencies ++= Seq(
   "org.http4s"     %% "http4s-dsl"           % http4sVersion,
   "org.http4s"     %% "rho-swagger"          % "0.20.0-M1",
   "org.scalatest"  %% "scalatest"            % "3.0.8" % Test,
+  "org.reactormonk" %% "cryptobits" % "1.2"
+
 )
 addCompilerPlugin("org.typelevel" %% "kind-projector" % "0.10.3")
