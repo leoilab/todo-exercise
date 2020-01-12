@@ -98,9 +98,15 @@ object Server {
       .use(_ => IO.never)
   }
 
-  def createRoutes(transactor: Transactor[IO])(implicit cs: ContextShift[IO]): HttpRoutes[IO] = {
-    val todoRoutes        = Routes(transactor)
-    val swaggerMiddleware = createTodoSwaggerMiddleware
+  def createRoutes(transactor: Transactor[IO])(
+      implicit cs:             ContextShift[IO]
+  ): HttpRoutes[IO] = {
+    implicit val todoRepositoryIO = new TodoRepositoryFImplIO(transactor)
+    implicit val logger           = new LoggerFImplForIO
+    val todoServiceIO             = new TodoServiceIOImpl(todoRepositoryIO, new LoggerIOImpl())
+    val todoRoutes                = Routes(todoServiceIO)
+    val todoRoutes2               = Routes.applyF
+    val swaggerMiddleware         = createTodoSwaggerMiddleware
 
     Router(
       "/docs"             -> fileService[IO](FileService.Config[IO]("./swagger")),

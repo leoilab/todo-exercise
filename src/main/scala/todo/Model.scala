@@ -4,7 +4,7 @@ import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 
 object Model {
 
-  case class Todo(
+  final case class Todo(
       id:   Int,
       name: String,
       done: Boolean
