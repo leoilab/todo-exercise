@@ -1,5 +1,6 @@
 package todo
 
+import cats.data.EitherT
 import cats.{Apply, Monad, MonadError}
 import cats.effect.IO
 import shapeless.{:+:, CNil, Coproduct}
@@ -98,7 +99,16 @@ object TodoServiceF {
         case _ => Right(Unit)
       }
     }
+  }
 
+  def complexTypeError2[F[_]: Monad]: EitherT[F, Errors.Example, Unit] = {
+    EitherT.fromEither {
+      1 match {
+        case 0 => Left(Coproduct[Errors.Example](Errors.TodoNotFound(1)))
+        case 1 => Left(Coproduct[Errors.Example](Errors.SomeOtherProblem()))
+        case _ => Right(Unit)
+      }
+    }
   }
 
 }
