@@ -1,19 +1,13 @@
 package todo.serviceexamples
 
-import cats.{Monad, MonadError}
 import cats.data.EitherT
 import cats.effect.IO
 import cats.syntax.apply._
-import cats.syntax.functor._
-import cats.syntax.monad._
-import doobie.free.connection.ConnectionIO
 import doobie.implicits._
 import doobie.util.transactor.Transactor
-import shapeless.{:+:, CNil, Coproduct}
+import shapeless.Coproduct
 import todo.{FailedToInsert, TooManyWriteResults}
 import todo.serviceexamples.Common._
-
-import scala.concurrent.ExecutionContext
 
 object SimpleIO {
 

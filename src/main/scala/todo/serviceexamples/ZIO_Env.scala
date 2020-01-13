@@ -1,3 +1,3 @@
 package todo.serviceexamples
 
-class ZIO {}
+object ZIO_Env {}

@@ -4,14 +4,13 @@ import cats.data.EitherK
 import cats.effect.IO
 import cats.{~>, InjectK}
 import cats.free.Free
-import cats.syntax.functor._
 import cats.syntax.apply._
 import doobie.implicits._
 import doobie.free.connection.ConnectionIO
 import doobie.util.transactor.Transactor
 import shapeless.Coproduct
 import todo.TooManyWriteResults
-import todo.serviceexamples.Common.{Trx, _}
+import todo.serviceexamples.Common._
 
 object FreeMonad {
 
@@ -89,7 +88,13 @@ object FreeMonad {
           case StoreList =>
             sql"select id, name, done from todo".query[Todo].to[Vector]
           case StoreCreate(name) =>
-            sql"insert into todo (name, done) values (${name}, 0)".update.run.void
+            val statement = sql"insert into todo (name, done) values (${name}, 0)"
+
+            statement.update.run.flatMap {
+              case 0       => Common.Trx.raiseError(FailedToInsert(statement))
+              case 1       => Common.Trx.unit
+              case results => Common.Trx.raiseError(TooManyWriteResults(statement, results))
+            }
           case StoreFinish(id) =>
             val statement = sql"update todo set done = 1 where id = ${id}"
 
