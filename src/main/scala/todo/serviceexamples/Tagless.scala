@@ -16,6 +16,7 @@ object Tagless {
     def error(message: String, cause: Throwable): F[Unit]
   }
   object Logger {
+    // These summoner methods are not necessary with the alternative syntax
     @inline def apply[F[_]](implicit instance: Logger[F]): Logger[F] = instance
   }
 
@@ -61,7 +62,6 @@ object Tagless {
       }
 
       def finish(id: Int): Trx[UpdateResult] = {
-
         val statement = sql"update todo set done = 1 where id = ${id}"
 
         statement.update.run.flatMap {
@@ -111,18 +111,20 @@ object Tagless {
           trx.run(store.create(name))
       }
 
+      // Needs an extra type argument on EitherT.liftF compared to SimpleIO otherwise fails with a non trivial error
       def finish_alt[F[_]: Monad](
           id:            Int
       )(implicit logger: Logger[F], store: Store[F], trx: TrxHandler[F]): EitherT[F, FinishError, Unit] = {
         for {
           _ <- EitherT.fromEither[F](if (id < 0) Left(Coproduct[FinishError](InvalidId(id))) else Right(()))
           _ <- EitherT.liftF(logger.info(s"Finishing todo: ${id}"))
-          updateResult <- EitherT
-            .liftF[F, FinishError, UpdateResult](trx.run(store.finish(id)))
-            .flatMap[FinishError, Unit] {
-              case UpdateResult.Updated  => EitherT.fromEither(Right())
-              case UpdateResult.NotFound => EitherT.fromEither(Left(Coproduct[FinishError](TodoNotFound(id))))
+          updateResult <- EitherT.liftF[F, FinishError, UpdateResult](trx.run(store.finish(id)))
+          _ <- EitherT.fromEither[F] {
+            updateResult match {
+              case UpdateResult.Updated  => Right()
+              case UpdateResult.NotFound => Left(Coproduct[FinishError](TodoNotFound(id)))
             }
+          }
         } yield updateResult
       }
 

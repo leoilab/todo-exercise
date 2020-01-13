@@ -70,6 +70,9 @@ object FreeMonad {
   type Dsl_1[T] = EitherK[TrxOp[StoreOp, ?], StoreOp, T]
   type Dsl[T]   = EitherK[LoggerOp, Dsl_1, T]
 
+  // Drawback for the implementation:
+  // IntelliJ reports an error for every case because it doesn't understand GADTs very well
+  // https://en.wikipedia.org/wiki/Generalized_algebraic_data_type
   object Implementation {
 
     object LoggerInterpreter extends (LoggerOp ~> IO) {
@@ -135,6 +138,8 @@ object FreeMonad {
           trx.run(store.create(name))
       }
 
+      // Can't chain errors, have to nest them.
+      // FreeT or EitherT[Free, ?, ?] might solve it but it seems complicated
       def finish(id: Int): Free[Dsl, Either[FinishError, Unit]] = {
         for {
           _ <- logger.info(s"Finishing todo: ${id}")

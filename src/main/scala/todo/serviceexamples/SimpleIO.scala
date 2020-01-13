@@ -59,7 +59,6 @@ object SimpleIO {
       }
 
       def finish(id: Int): Trx[UpdateResult] = {
-
         val statement = sql"update todo set done = 1 where id = ${id}"
 
         statement.update.run.flatMap {
@@ -82,6 +81,10 @@ object SimpleIO {
           trx.run(store.create(name))
       }
 
+      // Alternative to the EitherT.* hell:
+      // Define the dependencies in terms of EitherT, drawback:
+      // has to do a lot of .leftMap to convert different error types.
+      // Alternative: drop typed errors, drawback: doesn't play nicely with swagger docs
       def finish(id: Int): EitherT[IO, FinishError, Unit] = {
         for {
           _ <- EitherT.fromEither[IO](if (id < 0) Left(Coproduct[FinishError](InvalidId(id))) else Right(()))

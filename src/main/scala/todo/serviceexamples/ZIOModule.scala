@@ -5,8 +5,10 @@ import doobie.util.transactor.Transactor
 import shapeless.Coproduct
 import todo.serviceexamples.Common._
 import zio.interop.catz._
-import zio.{DefaultRuntime, IO, RIO, Task, ZIO}
+import zio.{DefaultRuntime, IO, RIO, Task, UIO, ZIO}
 
+// Not sure how what's the point of the environment when using this module pattern
+// Reminds me a bit to the cake pattern, accidentally overwriting dependencies can be a problem
 object ZIOModule {
 
   trait Logger {
@@ -56,7 +58,7 @@ object ZIOModule {
       final val logger = new Logger.Service[Any] {
         def info(message: String): RIO[Any, Unit] = {
           // Works without .effect as well:
-          // IO(println(s"[INFO] ${message}"))
+          // RIO(println(s"[INFO] ${message}"))
           RIO.effect(println(s"[INFO] ${message}"))
         }
 
@@ -128,6 +130,7 @@ object ZIOModule {
           } yield ()
         }
 
+        // Error mapping seems to be the simplest but still needs a few .refineToOrDie to lift RIO/Task operations
         def finish(id: Int): ZIO[Any, FinishError, Unit] = {
           for {
             _ <- if (id < 0) ZIO.fail(Coproduct[FinishError](InvalidId(id))) else ZIO.succeed(())
