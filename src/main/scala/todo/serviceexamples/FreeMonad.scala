@@ -54,11 +54,11 @@ object FreeMonad {
   }
 
   sealed trait TrxOp[DB[_], T]
-  final case class Trx[DB[_], T](op: Free[DB, T]) extends TrxOp[DB, T]
+  final case class WithTrx[DB[_], T](op: Free[DB, T]) extends TrxOp[DB, T]
 
   class TrxInject[F[_], DB[_]](implicit inject: InjectK[TrxOp[DB, ?], F]) {
     def run[T](op: Free[DB, T]): Free[F, T] = {
-      Free.inject[TrxOp[DB, ?], F](Trx[DB, T](op))
+      Free.inject[TrxOp[DB, ?], F](WithTrx[DB, T](op))
     }
   }
   object TrxInject {
@@ -110,7 +110,7 @@ object FreeMonad {
     class TrxInterpreter[F[_]](repoInterpreter: F ~> ConnectionIO) extends (TrxOp[F, ?] ~> ConnectionIO) {
       def apply[T](op: TrxOp[F, T]): ConnectionIO[T] = {
         op match {
-          case Trx(transactionalOp) =>
+          case WithTrx(transactionalOp) =>
             transactionalOp.foldMap[ConnectionIO](repoInterpreter)
         }
       }

@@ -11,20 +11,17 @@ import org.http4s.rho.swagger.models.{
   SecurityRequirement,
   StringProperty
 }
-import cats.syntax.functor._
 import cats.syntax.apply._
 import doobie.Transactor
-import doobie.implicits._
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 import org.http4s.{HttpRoutes, Request}
-import org.http4s.circe.{CirceEntityEncoder, CirceInstances}
-import org.http4s.rho.{RhoMiddleware, RhoRoutes}
-import org.http4s.rho.swagger.{DefaultSwaggerFormats, SwaggerSupport, SwaggerSyntax}
+import org.http4s.circe.CirceEntityEncoder
+import org.http4s.rho.RhoMiddleware
+import org.http4s.rho.swagger.{DefaultSwaggerFormats, SwaggerSupport}
 import org.http4s.server.Router
 import org.http4s.server.blaze.BlazeServerBuilder
 import org.http4s.server.staticcontent.{fileService, FileService}
 import todo.serviceexamples.SimpleIO
-
 import scala.reflect.runtime.universe.typeOf
 
 object Server {
