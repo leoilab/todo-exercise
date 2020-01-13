@@ -6,19 +6,19 @@ name := "todo"
 version := "0.1"
 scalaVersion := "2.12.10"
 resolvers += Resolver.sonatypeRepo("releases")
+scalacOptions += "-Ypartial-unification"
 libraryDependencies ++= Seq(
-
-  "org.typelevel"  %% "cats-core"            % catsVersion,
-  "org.typelevel"  %% "cats-effect"          % catsVersion,
-  "org.tpolecat"   %% "doobie-core"          % "0.7.1",
-  "org.xerial"     %  "sqlite-jdbc"          % "3.28.0",
-  "io.circe"       %% "circe-core"           % circeVersion,
-  "io.circe"       %% "circe-generic"        % circeVersion,
-  "io.circe"       %% "circe-parser"         % circeVersion,
-  "org.http4s"     %% "http4s-blaze-server"  % http4sVersion,
-  "org.http4s"     %% "http4s-circe"         % http4sVersion,
-  "org.http4s"     %% "http4s-dsl"           % http4sVersion,
-  "org.http4s"     %% "rho-swagger"          % "0.20.0-M1",
-  "org.scalatest"  %% "scalatest"            % "3.0.8" % Test,
+  "org.typelevel" %% "cats-core" % catsVersion,
+  "org.typelevel" %% "cats-effect" % catsVersion,
+  "org.tpolecat" %% "doobie-core" % "0.7.1",
+  "org.xerial" % "sqlite-jdbc" % "3.28.0",
+  "io.circe" %% "circe-core" % circeVersion,
+  "io.circe" %% "circe-generic" % circeVersion,
+  "io.circe" %% "circe-parser" % circeVersion,
+  "org.http4s" %% "http4s-blaze-server" % http4sVersion,
+  "org.http4s" %% "http4s-circe" % http4sVersion,
+  "org.http4s" %% "http4s-dsl" % http4sVersion,
+  "org.http4s" %% "rho-swagger" % "0.20.0-M1",
+  "org.scalatest" %% "scalatest" % "3.0.8" % Test
 )
 addCompilerPlugin("org.typelevel" %% "kind-projector" % "0.10.3")

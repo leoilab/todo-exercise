@@ -11,7 +11,7 @@ import doobie.implicits._
 import doobie.util.transactor.Transactor
 import shapeless.{:+:, CNil, Coproduct}
 import todo.{FailedToInsert, TooManyWriteResults}
-import todo.serviceexamples.Model._
+import todo.serviceexamples.Common._
 
 import scala.concurrent.ExecutionContext
 
@@ -32,7 +32,6 @@ object SimpleIO {
     def run[T](operation: Trx[T]): IO[T]
   }
 
-  type FinishError = :+:[InvalidId, TodoNotFound :+: CNil]
   trait Service {
     // No explicit errors in any layer
     def list: IO[Vector[Todo]]
@@ -83,9 +82,7 @@ object SimpleIO {
     }
 
     final class ServiceImpl(logger: Logger, store: Store, trx: TrxHandler) extends Service {
-      def list: IO[Vector[Todo]] = {
-        logger.info("Getting a list of todos") *> store.list
-      }
+      def list: IO[Vector[Todo]] = store.list
 
       def create(name: String): IO[Unit] = {
         logger.info(s"Creating todo: '${name}'") *>
@@ -110,11 +107,6 @@ object SimpleIO {
   }
 
   def main(args: Array[String]): Unit = {
-    implicit val cs = IO.contextShift(ExecutionContext.global)
-    val transactor = Transactor.fromDriverManager[IO](
-      "org.sqlite.JDBC",
-      "jdbc:sqlite:todo.db"
-    )
     val logger     = Implementation.LoggerImpl
     val store      = new Implementation.StoreImpl(transactor)
     val trxHandler = new Implementation.TrxHandlerImpl(transactor)

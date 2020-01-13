@@ -105,8 +105,8 @@ object Server {
     implicit val logger           = new LoggerFImplForIO
     val todoServiceIO             = new TodoServiceIOImpl(todoRepositoryIO, new LoggerIOImpl())
     val todoRoutes                = Routes(todoServiceIO)
-    val todoRoutes2               = Routes.applyF
-    val swaggerMiddleware         = createTodoSwaggerMiddleware
+//    val todoRoutes2               = Routes.applyF
+    val swaggerMiddleware = createTodoSwaggerMiddleware
 
     Router(
       "/docs"             -> fileService[IO](FileService.Config[IO]("./swagger")),
