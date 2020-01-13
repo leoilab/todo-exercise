@@ -144,7 +144,7 @@ object ZIOModule {
 
   }
 
-  object TestService
+  class TestService
       extends Implementation.TodoServiceImpl
       with Implementation.LoggerImpl
       with Implementation.StoreImpl
@@ -158,7 +158,7 @@ object ZIOModule {
   def main(args: Array[String]): Unit = {
     val runtime = new DefaultRuntime {}
 
-    runtime.unsafeRun(TestService.todoService.finish(1))
+    runtime.unsafeRun(new TestService().todoService.finish(-1))
   }
 
 }
