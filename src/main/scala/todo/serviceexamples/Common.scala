@@ -1,6 +1,7 @@
 package todo.serviceexamples
 
 import cats.effect.{IO, Sync}
+import io.circe.generic.semiauto.deriveCodec
 import doobie.free.connection.ConnectionIO
 import doobie.util.fragment.Fragment
 import doobie.util.transactor.Transactor
@@ -21,6 +22,9 @@ object Common {
       name: String,
       done: Boolean
   )
+  object Todo {
+    implicit val circeCodec = deriveCodec[Todo]
+  }
 
   type Trx[T] = ConnectionIO[T]
 

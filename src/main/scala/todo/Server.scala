@@ -102,12 +102,11 @@ object Server {
   def createRoutes(transactor: Transactor[IO])(
       implicit cs:             ContextShift[IO]
   ): HttpRoutes[IO] = {
-    val todoRepositoryIO = new SimpleIO.Implementation.StoreImpl(transactor)
-    val logger           = SimpleIO.Implementation.LoggerImpl
-    val trx              = new SimpleIO.Implementation.TrxHandlerImpl(transactor)
-    val todoServiceIO    = new SimpleIO.Implementation.ServiceImpl(logger, todoRepositoryIO, trx)
-    val todoRoutes       = Routes(todoServiceIO)
-//    val todoRoutes2               = Routes.applyF
+    val todoRepositoryIO  = new SimpleIO.Implementation.StoreImpl(transactor)
+    val logger            = SimpleIO.Implementation.LoggerImpl
+    val trx               = new SimpleIO.Implementation.TrxHandlerImpl(transactor)
+    val todoServiceIO     = new SimpleIO.Implementation.ServiceImpl(logger, todoRepositoryIO, trx)
+    val todoRoutes        = Routes(todoServiceIO)
     val swaggerMiddleware = createTodoSwaggerMiddleware
 
     Router(
