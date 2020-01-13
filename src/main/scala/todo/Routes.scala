@@ -11,12 +11,12 @@ import org.http4s.circe.{CirceEntityEncoder, CirceInstances}
 import org.http4s.rho.RhoRoutes
 import org.http4s.rho.swagger.SwaggerSyntax
 import shapeless.{Inl, Inr}
-import todo.Errors.{SomeOtherProblem, TodoNotFound}
 import todo.Model.Todo
 import todo.Server.{CreateTodo, EmptyResponse, ErrorResponse}
+import todo.serviceexamples.SimpleIO
 
 object Routes {
-  def apply(service: TodoServiceIO): RhoRoutes[IO] = {
+  def apply(service: SimpleIO.Service): RhoRoutes[IO] = {
     new RhoRoutes[IO] with SwaggerSyntax[IO] with CirceInstances with CirceEntityEncoder {}
 
   }
@@ -67,8 +67,8 @@ object Routes {
 //      GET / "error-example" |>> {
 //        service.complexErrorExample.flatMap {
 //          case Left(Inl(TodoNotFound(id))) => NotFound(ErrorResponse(s"Todo with id: 1 not found"))
-//          case Left(Inr(Inl(SomeOtherProblem()))) =>
-//            BadRequest(ErrorResponse("Nonono"))
+//          case Left(Inr(Inl(InvalidId(id)))) =>
+//            BadRequest(ErrorResponse(s"Invalid id: ${id}"))
 //          case Left(Inr(Inr(cnil))) => cnil.impossible
 //          case Right(_)             => Ok(EmptyResponse())
 //        }
@@ -77,35 +77,5 @@ object Routes {
 //    }
 //  }
 //
-//  def applyF(implicit repository: TodoRepositoryF[IO], log: LoggerF[IO]): RhoRoutes[IO] = {
-//    new RhoRoutes[IO] with SwaggerSyntax[IO] with CirceInstances with CirceEntityEncoder {
-//      GET / "errors" |>> {
-//        TodoServiceF
-//        //          .create[IO]("asd")
-//        //          .finish
-//        //          .finishTypedError(1)
-//          .complexTypeError[IO]
-//          .flatMap {
-//            case Left(Inl(TodoNotFound(id))) => NotFound(ErrorResponse(s"Todo with id: 1 not found"))
-//            case Left(Inr(Inl(SomeOtherProblem()))) =>
-//              BadRequest(ErrorResponse("Nonono"))
-//            case Left(Inr(Inr(cnil))) => cnil.impossible
-//            case Right(_)             => Ok(EmptyResponse())
-//          }
-//      }
-//      GET / "errors2" |>> {
-//        val result = TodoServiceF.complexTypeError2[IO]
-//
-//        result.value
-//          .flatMap {
-//            case Left(Inl(TodoNotFound(id))) => NotFound(ErrorResponse(s"Todo with id: 1 not found"))
-//            case Left(Inr(Inl(SomeOtherProblem()))) =>
-//              BadRequest(ErrorResponse("Nonono"))
-//            case Left(Inr(Inr(cnil))) => cnil.impossible
-//            case Right(_)             => Ok(EmptyResponse())
-//          }
-//      }
-//    }
 
-//  }
 }

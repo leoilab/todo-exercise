@@ -9,7 +9,6 @@ import doobie.implicits._
 import doobie.free.connection.ConnectionIO
 import doobie.util.transactor.Transactor
 import shapeless.Coproduct
-import todo.TooManyWriteResults
 import todo.serviceexamples.Common._
 
 object FreeMonad {

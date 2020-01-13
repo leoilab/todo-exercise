@@ -23,6 +23,7 @@ import org.http4s.rho.swagger.{DefaultSwaggerFormats, SwaggerSupport, SwaggerSyn
 import org.http4s.server.Router
 import org.http4s.server.blaze.BlazeServerBuilder
 import org.http4s.server.staticcontent.{fileService, FileService}
+import todo.serviceexamples.SimpleIO
 
 import scala.reflect.runtime.universe.typeOf
 
@@ -101,10 +102,11 @@ object Server {
   def createRoutes(transactor: Transactor[IO])(
       implicit cs:             ContextShift[IO]
   ): HttpRoutes[IO] = {
-    implicit val todoRepositoryIO = new TodoRepositoryFImplIO(transactor)
-    implicit val logger           = new LoggerFImplForIO
-    val todoServiceIO             = new TodoServiceIOImpl(todoRepositoryIO, new LoggerIOImpl())
-    val todoRoutes                = Routes(todoServiceIO)
+    val todoRepositoryIO = new SimpleIO.Implementation.StoreImpl(transactor)
+    val logger           = SimpleIO.Implementation.LoggerImpl
+    val trx              = new SimpleIO.Implementation.TrxHandlerImpl(transactor)
+    val todoServiceIO    = new SimpleIO.Implementation.ServiceImpl(logger, todoRepositoryIO, trx)
+    val todoRoutes       = Routes(todoServiceIO)
 //    val todoRoutes2               = Routes.applyF
     val swaggerMiddleware = createTodoSwaggerMiddleware
 

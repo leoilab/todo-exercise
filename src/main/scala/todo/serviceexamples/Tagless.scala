@@ -7,7 +7,6 @@ import cats.syntax.apply._
 import doobie.implicits._
 import doobie.util.transactor.Transactor
 import shapeless.Coproduct
-import todo.{FailedToInsert, TooManyWriteResults}
 import todo.serviceexamples.Common._
 
 object Tagless {
