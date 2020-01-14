@@ -7,7 +7,7 @@ import todo.serviceexamples.Common._
 import zio.interop.catz._
 import zio.{DefaultRuntime, IO, RIO, Task, UIO, ZIO}
 
-// Not sure how what's the point of the environment when using this module pattern
+// Not sure what's the point of the environment when using this module pattern
 // Reminds me a bit to the cake pattern, accidentally overwriting dependencies can be a problem
 // Idea: try Has* pattern with environment for injection
 object ZIOModule {
