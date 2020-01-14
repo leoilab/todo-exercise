@@ -24,4 +24,5 @@ libraryDependencies ++= Seq(
   "dev.zio" %% "zio-interop-cats" % "2.0.0.0-RC10",
   "org.scalatest" %% "scalatest" % "3.0.8" % Test
 )
+addCompilerPlugin("com.olegpy" %% "better-monadic-for" % "0.3.1")
 addCompilerPlugin("org.typelevel" %% "kind-projector" % "0.10.3")
