@@ -141,17 +141,15 @@ object FreeMonad {
       // Can't chain errors, have to nest them.
       // FreeT or EitherT[Free, ?, ?] might solve it but it seems complicated
       def finish(id: Int): Free[Dsl, Either[FinishError, Unit]] = {
-        for {
-          _ <- logger.info(s"Finishing todo: ${id}")
-          result <- if (id < 0) {
-            Free.pure[Dsl, Either[FinishError, Unit]](Left(Coproduct[FinishError](InvalidId(id))))
-          } else {
+        if (id < 0) {
+          Free.pure[Dsl, Either[FinishError, Unit]](Left(Coproduct[FinishError](InvalidId(id))))
+        } else {
+          logger.info(s"Finishing todo: ${id}") *>
             trx.run(store.finish(id)).map {
               case UpdateResult.NotFound => Left(Coproduct[FinishError](TodoNotFound(id)))
               case UpdateResult.Updated  => Right(())
             }
-          }
-        } yield result
+        }
       }
 
     }

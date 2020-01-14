@@ -1,8 +1,6 @@
 package todo.serviceexample
 
 import cats.effect.IO
-import cats.syntax.monad._
-import cats.syntax.functor._
 import cats.effect.concurrent.Ref
 import org.scalatest._
 import shapeless.{Inl, Inr}
