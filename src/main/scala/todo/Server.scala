@@ -103,7 +103,7 @@ object Server {
     val logger            = SimpleIO.Implementation.LoggerImpl
     val trx               = new SimpleIO.Implementation.TrxHandlerImpl(transactor)
     val todoServiceIO     = new SimpleIO.Implementation.ServiceImpl(logger, todoRepositoryIO, trx)
-    val todoRoutes        = Routes(todoServiceIO)
+    val todoRoutes        = Routes.simpleIO(todoServiceIO)
     val swaggerMiddleware = createTodoSwaggerMiddleware
 
     Router(
