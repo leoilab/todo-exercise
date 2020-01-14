@@ -84,18 +84,13 @@ class FreeMonadSpec extends FunSpec with DBTestHelper with Matchers {
 
       iot("should fail when the todo is missing") {
         case (_, service, execute) =>
-          val program = for {
-            result <- service.finish(1)
-            finalTodos <- service.list
-          } yield (result, finalTodos)
+          val program = service.finish(1)
 
-          execute(program).map {
-            case (result, finalTodos) =>
-              finalTodos should be(empty)
-              result should be('left)
-              // Note: if we go with error handling with coproducts we should
-              // build a matcher that can extract the error in a nicer way (contain?)
-              result.left.toOption.get should be(Inr(Inl(TodoNotFound(1))))
+          execute(program).map { result =>
+            result should be('left)
+            // Note: if we go with error handling with coproducts we should
+            // build a matcher that can extract the error in a nicer way (contain?)
+            result.left.toOption.get should be(Inr(Inl(TodoNotFound(1))))
           }
       }
 

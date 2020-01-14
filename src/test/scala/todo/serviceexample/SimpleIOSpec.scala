@@ -61,9 +61,7 @@ class SimpleIOSpec extends FunSpec with DBTestHelper with Matchers {
         for {
           (_, service) <- createFakes
           result <- service.finish(1).value
-          finalTodos <- service.list
         } yield {
-          finalTodos should be(empty)
           result should be('left)
           // Note: if we go with error handling with coproducts we should
           // build a matcher that can extract the error in a nicer way (contain?)
