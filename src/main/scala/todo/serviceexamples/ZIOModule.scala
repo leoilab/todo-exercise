@@ -57,13 +57,13 @@ object ZIOModule {
 
     trait LoggerImpl extends Logger {
       final val logger = new Logger.Service[Any] {
-        def info(message: String): RIO[Any, Unit] = {
+        def info(message: String): Task[Unit] = {
           // Works without .effect as well:
           // RIO(println(s"[INFO] ${message}"))
           RIO.effect(println(s"[INFO] ${message}"))
         }
 
-        def error(message: String, cause: Throwable): RIO[Any, Unit] = {
+        def error(message: String, cause: Throwable): Task[Unit] = {
           RIO.effect(println(s"[ERROR] ${message} caused by: ${cause}"))
         }
       }
@@ -109,7 +109,7 @@ object ZIOModule {
       val transactor: Transactor[Task]
 
       final val trx = new TrxHandler.Service[Any] {
-        def run[T](operation: Trx[T]): RIO[Any, T] = operation.transact(transactor)
+        def run[T](operation: Trx[T]): Task[T] = operation.transact(transactor)
       }
 
     }
@@ -122,9 +122,9 @@ object ZIOModule {
       val trx:    TrxHandler.Service[Any]
 
       final val todoService = new TodoService.Service[Any] {
-        def list: RIO[Any, Vector[Todo]] = store.list
+        def list: Task[Vector[Todo]] = store.list
 
-        def create(name: String): RIO[Any, Unit] = {
+        def create(name: String): Task[Unit] = {
           for {
             _ <- logger.info(s"Creating todo: '${name}'")
             _ <- trx.run(store.create(name))
@@ -132,7 +132,7 @@ object ZIOModule {
         }
 
         // Error mapping seems to be the simplest but still needs a few .refineToOrDie to lift RIO/Task operations
-        def finish(id: Int): ZIO[Any, FinishError, Unit] = {
+        def finish(id: Int): IO[FinishError, Unit] = {
           for {
             _ <- if (id < 0) ZIO.fail(Coproduct[FinishError](InvalidId(id))) else ZIO.succeed(())
             _ <- logger.info(s"Finishing todo: ${id}").refineToOrDie[FinishError]
