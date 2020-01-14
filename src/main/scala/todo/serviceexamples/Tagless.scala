@@ -125,7 +125,7 @@ object Tagless {
               case UpdateResult.NotFound => Left(Coproduct[FinishError](TodoNotFound(id)))
             }
           }
-        } yield updateResult
+        } yield ()
       }
 
     }
