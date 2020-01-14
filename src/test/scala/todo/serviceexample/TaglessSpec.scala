@@ -1,21 +1,21 @@
 package todo.serviceexample
 
 import cats.effect.IO
-import cats.syntax.monad._
-import cats.syntax.functor._
 import cats.effect.concurrent.Ref
 import org.scalatest._
 import shapeless.{Inl, Inr}
 import todo.serviceexamples.Common.{InvalidId, TodoNotFound}
-import todo.serviceexamples.SimpleIO
+import todo.serviceexamples.Tagless
+import todo.serviceexamples.Tagless.Implementation.Service
 
-class SimpleIOSpec extends FunSpec with DBTestHelper with Matchers {
+class TaglessSpec extends FunSpec with DBTestHelper with Matchers {
 
   // You wouldn't normally want to do this because it would
   // test the implementation instead of the interface so it's
   // just here to show how to do whitebox mocking
   type Messages = Vector[(String, Option[Throwable])]
-  final class FakeLogger(messageStore: Ref[IO, Messages]) extends SimpleIO.Logger {
+  // Implementation is identical to SimpleIOSpec.FakeLogger
+  final class FakeLogger(messageStore: Ref[IO, Messages]) extends Tagless.Logger[IO] {
     def info(message: String): IO[Unit] = {
       messageStore.update(_ :+ (message, None))
     }
@@ -24,19 +24,32 @@ class SimpleIOSpec extends FunSpec with DBTestHelper with Matchers {
     }
   }
 
-  def createFakes: IO[(Ref[IO, Messages], SimpleIO.Service)] = {
-    for {
-      messages <- Ref.of[IO, Messages](Vector.empty)
-      logger  = new FakeLogger(messages)
-      store   = new SimpleIO.Implementation.StoreImpl(DBTestHelper.transactor)
-      trx     = new SimpleIO.Implementation.TrxHandlerImpl(DBTestHelper.transactor)
-      service = new SimpleIO.Implementation.ServiceImpl(logger, store, trx)
-    } yield (messages, service)
+  trait Dependencies {
+    val messages:            Ref[IO, Messages]
+    implicit val loggerImpl: Tagless.Logger[IO]
+    implicit val storeImpl:  Tagless.Store[IO]
+    implicit val trxImpl:    Tagless.TrxHandler[IO]
   }
 
-  def iot[A](message: String)(body: => IO[A]): Unit = {
+  def createFakes: IO[Dependencies] = {
+    for {
+      ms <- Ref.of[IO, Messages](Vector.empty)
+      logger = new FakeLogger(ms)
+      store  = new Tagless.Implementation.StoreIO(DBTestHelper.transactor)
+      trx    = new Tagless.Implementation.TrxHandlerIO(DBTestHelper.transactor)
+    } yield
+      new Dependencies {
+        val messages            = ms
+        implicit val loggerImpl = logger
+        implicit val storeImpl  = store
+        implicit val trxImpl    = trx
+      }
+  }
+
+  // Alternative io test definition with fakes built in
+  def iot[A](message: String)(body: Dependencies => IO[A]): Unit = {
     it(message) {
-      body.unsafeRunSync()
+      createFakes.flatMap(body).unsafeRunSync()
     }
   }
 
@@ -44,12 +57,13 @@ class SimpleIOSpec extends FunSpec with DBTestHelper with Matchers {
 
     describe("finish") {
 
-      iot("should fail without logs if the id is invalid ") {
+      iot("should fail without logs if the id is invalid ") { deps =>
+        import deps._
+
         for {
-          (messages, service) <- createFakes
-          result <- service.finish(-1).value
+          result <- Service.finish[IO](-1).value
           finalMessages <- messages.get
-          finalTodos <- service.list
+          finalTodos <- Service.list
         } yield {
           // Checking finalMessages is not a good idea in general, see the note at FakeLogger
           finalMessages should be(empty)
@@ -59,11 +73,12 @@ class SimpleIOSpec extends FunSpec with DBTestHelper with Matchers {
         }
       }
 
-      iot("should fail when the todo is missing") {
+      iot("should fail when the todo is missing") { deps =>
+        import deps._
+
         for {
-          (_, service) <- createFakes
-          result <- service.finish(1).value
-          finalTodos <- service.list
+          result <- Service.finish[IO](1).value
+          finalTodos <- Service.list
         } yield {
           finalTodos should be(empty)
           result should be('left)
@@ -73,16 +88,18 @@ class SimpleIOSpec extends FunSpec with DBTestHelper with Matchers {
         }
       }
 
-      iot("should work when the todo exists") {
+      iot("should work when the todo exists") { deps =>
+        import deps._
+
         val todoName = "test"
+
         for {
-          (_, service) <- createFakes
-          _ <- service.create(todoName)
+          _ <- Service.create[IO](todoName)
           // .head is ok here because we just created a Todo
-          todo <- service.list.map(_.head)
-          result <- service.finish(todo.id).value
+          todo <- Service.list.map(_.head)
+          result <- Service.finish[IO](todo.id).value
           // .head is ok here because we just created a Todo
-          finishedTodo <- service.list.map(_.head)
+          finishedTodo <- Service.list.map(_.head)
         } yield {
           result should be('right)
           todo.done should be(false)

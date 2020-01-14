@@ -4,7 +4,7 @@ import cats.effect.IO
 import cats.syntax.functor._
 import doobie.implicits._
 import doobie.util.transactor.Transactor
-import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, Spec, TestSuite}
+import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, TestSuite}
 import todo.Migrations
 import zio.Task
 import zio.interop.catz._
