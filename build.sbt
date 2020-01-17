@@ -25,7 +25,8 @@ libraryDependencies ++= Seq(
   "dev.zio" %% "zio-interop-cats" % "2.0.0.0-RC10",
   "org.scalatest" %% "scalatest" % "3.0.8" % Test,
   "dev.zio" %% "zio-test" % zioVersion % "test",
-  "dev.zio" %% "zio-test-sbt" % zioVersion % "test"
+  "dev.zio" %% "zio-test-sbt" % zioVersion % "test",
+  "com.github.jatcwang" %% "hotpotato-core" % "0.1.0"
 )
 parallelExecution in Test := false
 testFrameworks ++= Seq(new TestFramework("zio.test.sbt.ZTestFramework"))

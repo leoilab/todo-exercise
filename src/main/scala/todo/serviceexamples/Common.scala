@@ -5,6 +5,7 @@ import io.circe.generic.semiauto.deriveCodec
 import doobie.free.connection.ConnectionIO
 import doobie.util.fragment.Fragment
 import doobie.util.transactor.Transactor
+import hotpotato.{Embedder, OneOf2}
 import shapeless.{:+:, CNil}
 
 import scala.concurrent.ExecutionContext
@@ -38,7 +39,9 @@ object Common {
   final case class InvalidId(id:             Int) extends DomainError(s"Invalid id: ${id}")
   final case class TodoNotFound(id:          Int) extends DomainError(s"Todo with id: ${id} not found")
 
-  type FinishError = InvalidId :+: TodoNotFound :+: CNil
+  type FinishError   = InvalidId :+: TodoNotFound :+: CNil
+  type FinishErrorHP = OneOf2[InvalidId, TodoNotFound]
+  implicit val embedder = Embedder.make[FinishErrorHP]
 
   sealed trait UpdateResult
   object UpdateResult {
