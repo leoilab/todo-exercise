@@ -7,7 +7,7 @@ import todo.serviceexamples.Common._
 import zio._
 import zio.interop.catz._
 
-object ZIOModuleV2 {
+object ZIOModuleV3 {
 
   trait Logger {
     val logger: Logger.Service[Any]
@@ -19,7 +19,7 @@ object ZIOModuleV2 {
     }
 
     object > extends Logger.Service[Logger] {
-      def info(message:  String) = ZIO.accessM(x => x.logger.info(message))
+      def info(message:  String) = ZIO.accessM(_.logger.info(message))
       def error(message: String, cause: Throwable) = ZIO.accessM(_.logger.error(message, cause))
     }
   }
@@ -30,16 +30,12 @@ object ZIOModuleV2 {
   object Store {
     trait Service[R] {
       def list: RIO[R, Vector[Todo]]
-      def create(name: String): RIO[R, Trx[Unit]]
-      def finish(id:   Int):    RIO[R, Trx[UpdateResult]]
+      def create(name: String): Trx[Unit]
+      def finish(id:   Int):    Trx[UpdateResult]
     }
 
-    // Downside of ">" pattern: have to wrap create/finish in ZIO,
-    // needs an extra flatMap at the call site, hard to compose transactional codes
-    object > extends Store.Service[Store] {
-      def list = ZIO.accessM(_.store.list)
-      def create(name: String) = ZIO.accessM(_.store.create(name))
-      def finish(id:   Int)    = ZIO.accessM(_.store.finish(id))
+    object > {
+      def list: RIO[Any with Store, Vector[Todo]] = ZIO.accessM(_.store.list)
     }
   }
 
@@ -96,28 +92,24 @@ object ZIOModuleV2 {
           sql"select id, name, done from todo".query[Todo].to[Vector].transact(transactor)
         }
 
-        def create(name: String): Task[Trx[Unit]] = {
+        def create(name: String): Trx[Unit] = {
           val statement = sql"insert into todo (name, done) values (${name}, 0)"
 
-          Task.succeed(
-            statement.update.run
-              .flatMap {
-                case 0       => Trx.raiseError(FailedToInsert(statement))
-                case 1       => Trx.unit
-                case results => Trx.raiseError(TooManyWriteResults(statement, results))
-              }
-          )
-        }
-
-        def finish(id: Int): Task[Trx[UpdateResult]] = {
-          val statement = sql"update todo set done = 1 where id = ${id}"
-
-          Task.succeed {
-            statement.update.run.flatMap {
-              case 0       => Trx.pure(UpdateResult.NotFound)
-              case 1       => Trx.pure(UpdateResult.Updated)
+          statement.update.run
+            .flatMap {
+              case 0       => Trx.raiseError(FailedToInsert(statement))
+              case 1       => Trx.unit
               case results => Trx.raiseError(TooManyWriteResults(statement, results))
             }
+        }
+
+        def finish(id: Int): Trx[UpdateResult] = {
+          val statement = sql"update todo set done = 1 where id = ${id}"
+
+          statement.update.run.flatMap {
+            case 0       => Trx.pure(UpdateResult.NotFound)
+            case 1       => Trx.pure(UpdateResult.Updated)
+            case results => Trx.raiseError(TooManyWriteResults(statement, results))
           }
         }
       }
@@ -147,7 +139,7 @@ object ZIOModuleV2 {
         def create(name: String) = {
           for {
             _ <- Logger.>.info(s"Creating todo: '${name}'")
-            _ <- Store.>.create(name).flatMap(TrxHandler.>.run)
+            _ <- ZIO.accessM[Store with TrxHandler](env => TrxHandler.>.run(env.store.create(name)))
           } yield ()
         }
 
@@ -155,10 +147,13 @@ object ZIOModuleV2 {
           for {
             _ <- if (id < 0) ZIO.fail(Coproduct[FinishError](InvalidId(id))) else ZIO.succeed(())
             _ <- Logger.>.info(s"Finishing todo: ${id}").refineToOrDie[FinishError]
-            _ <- Store.>.finish(id).flatMap(TrxHandler.>.run).refineToOrDie[FinishError].flatMap {
-              case UpdateResult.Updated  => ZIO.succeed(())
-              case UpdateResult.NotFound => ZIO.fail(Coproduct[FinishError](TodoNotFound(id)))
-            }
+            _ <- ZIO
+              .accessM[Store with TrxHandler](env => TrxHandler.>.run(env.store.finish(id)))
+              .refineToOrDie[FinishError]
+              .flatMap {
+                case UpdateResult.Updated  => ZIO.succeed(())
+                case UpdateResult.NotFound => ZIO.fail(Coproduct[FinishError](TodoNotFound(id)))
+              }
           } yield ()
         }
       }
