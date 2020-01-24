@@ -4,6 +4,7 @@ import doobie.implicits._
 import doobie.util.transactor.Transactor
 import shapeless.Coproduct
 import todo.serviceexamples.Common._
+import todo.serviceexamples.ZIOModuleV3.Implementation.TodoServiceAlt
 import zio._
 import zio.interop.catz._
 
@@ -51,7 +52,6 @@ object ZIOModuleV3 {
       def run[T](operation: Trx[T]) = ZIO.accessM(_.trx.run(operation))
     }
   }
-
   trait TodoService {
     val todoService: TodoService.Service[Any]
   }
@@ -168,6 +168,31 @@ object ZIOModuleV3 {
 
     }
 
+    object TodoServiceAlt {
+      def list: RIO[Store, Vector[Todo]] = Store.>.list
+
+      def create(name: String) = {
+        for {
+          _ <- Logger.>.info(s"Creating todo: '${name}'")
+          _ <- ZIO.accessM[Store with TrxHandler](env => TrxHandler.>.run(env.store.create(name)))
+        } yield ()
+      }
+
+      def finish(id: Int) = {
+        for {
+          _ <- if (id < 0) ZIO.fail(Coproduct[FinishError](InvalidId(id))) else ZIO.succeed(())
+          _ <- Logger.>.info(s"Finishing todo: ${id}").refineToOrDie[FinishError]
+          _ <- Tx
+            .in(_.finish(id))
+            .refineToOrDie[FinishError]
+            .flatMap {
+              case UpdateResult.Updated  => ZIO.succeed(())
+              case UpdateResult.NotFound => ZIO.fail(Coproduct[FinishError](TodoNotFound(id)))
+            }
+        } yield ()
+      }
+    }
+
   }
 
   trait TransactorProvider {
@@ -183,10 +208,12 @@ object ZIOModuleV3 {
     with Implementation.TrxHandlerImpl with TransactorProvider {}
     val program = TodoService.>.finish(-1).provide(deps)
 
+    println(runtime.unsafeRun(TodoServiceAlt.create("asd").provide(deps)))
     println(
       runtime
         .unsafeRun(program)
     )
+
   }
 
 }
