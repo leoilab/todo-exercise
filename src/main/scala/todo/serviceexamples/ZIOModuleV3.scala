@@ -127,6 +127,14 @@ object ZIOModuleV3 {
 
     }
 
+    object Tx {
+      def in[T](op: Store.Service[Any] => Trx[T]): RIO[Store with TrxHandler, T] = {
+        ZIO.accessM[Store with TrxHandler] { env =>
+          env.trx.run(op(env.store))
+        }
+      }
+    }
+
     trait TodoServiceImpl extends TodoService {
 
       final val todoService = new TodoService.Service[Any] {
@@ -147,8 +155,8 @@ object ZIOModuleV3 {
           for {
             _ <- if (id < 0) ZIO.fail(Coproduct[FinishError](InvalidId(id))) else ZIO.succeed(())
             _ <- Logger.>.info(s"Finishing todo: ${id}").refineToOrDie[FinishError]
-            _ <- ZIO
-              .accessM[Store with TrxHandler](env => TrxHandler.>.run(env.store.finish(id)))
+            _ <- Tx
+              .in(_.finish(id))
               .refineToOrDie[FinishError]
               .flatMap {
                 case UpdateResult.Updated  => ZIO.succeed(())

@@ -6,8 +6,11 @@ import doobie.free.connection.ConnectionIO
 import doobie.util.fragment.Fragment
 import doobie.util.transactor.Transactor
 import hotpotato.{Embedder, OneOf2}
-import shapeless.{:+:, CNil}
+import shapeless.ops.coproduct.Inject
+import shapeless.{:+:, CNil, Coproduct}
+import zio.{DefaultRuntime, UIO, ZIO}
 
+import scala.collection.SortedMapLike
 import scala.concurrent.ExecutionContext
 
 object Common {
@@ -42,6 +45,60 @@ object Common {
   type FinishError   = InvalidId :+: TodoNotFound :+: CNil
   type FinishErrorHP = OneOf2[InvalidId, TodoNotFound]
   implicit val embedder = Embedder.make[FinishErrorHP]
+
+  trait PartOfBigError[SmallError, BigError] {
+    def embed(e: SmallError): BigError
+  }
+
+  implicit def head[S]: PartOfBigError[S, S :+: CNil] = new PartOfBigError[S, S :+: CNil] {
+    def embed(e: S): S :+: CNil = Coproduct[S :+: CNil](e)
+  }
+  implicit def tail[S, B <: Coproduct](
+      implicit inj: Inject[S :+: B, S]
+  ): PartOfBigError[S, S :+: B] =
+    new PartOfBigError[S, S :+: B] {
+      def embed(e: S): S :+: B = Coproduct[S :+: B](e)
+    }
+
+  class Validator[B] {
+    def option[T, S](op: Option[T], error: S)(implicit ev: PartOfBigError[S, B]): ZIO[Any, B, T] = {
+      op match {
+        case None    => ZIO.fail(ev.embed(error))
+        case Some(x) => UIO(x)
+      }
+    }
+  }
+  object validate {
+    def apply[B]: Validator[B] = new Validator[B]
+  }
+
+  def validateSimple[T, S, B](op: Option[T], error: S)(implicit ev: PartOfBigError[S, B]): ZIO[Any, B, T] = {
+    op match {
+      case None    => ZIO.fail(ev.embed(error))
+      case Some(x) => UIO(x)
+    }
+  }
+
+  def returnOptional(arg: String): UIO[Option[String]] = {
+    UIO(if (arg == "empty") None else Some(s"YAY: ${arg}"))
+  }
+
+  val failed = for {
+    maybeResult <- returnOptional("empty")
+    result <- validate[FinishError].option(maybeResult, InvalidId(1))
+  } yield result
+
+  val success = for {
+    maybeResult <- returnOptional("non-empty")
+    result <- validate[FinishError].option(maybeResult, InvalidId(1))
+  } yield result
+
+  def main(args: Array[String]): Unit = {
+    val runtime = new DefaultRuntime {}
+
+    println(runtime.unsafeRun(success))
+    println(runtime.unsafeRun(failed))
+  }
 
   sealed trait UpdateResult
   object UpdateResult {
