@@ -1,167 +1,91 @@
 package todo
 
-import cats.effect.{ContextShift, IO, Timer}
-import org.http4s.rho.swagger.models.{
-  ApiKeyAuthDefinition,
-  In,
-  Info,
-  Model,
-  ModelImpl,
-  Scheme,
-  SecurityRequirement,
-  StringProperty
-}
-import cats.syntax.functor._
-import cats.syntax.apply._
-import doobie.Transactor
-import doobie.implicits._
-import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
-import org.http4s.{HttpRoutes, Request}
-import org.http4s.circe.{CirceEntityEncoder, CirceInstances}
-import org.http4s.rho.{RhoMiddleware, RhoRoutes}
-import org.http4s.rho.swagger.{DefaultSwaggerFormats, SwaggerSupport, SwaggerSyntax}
-import org.http4s.server.Router
-import org.http4s.server.blaze.BlazeServerBuilder
-import org.http4s.server.staticcontent.{fileService, FileService}
+import java.util.concurrent.Executors
 
-import scala.reflect.runtime.universe.typeOf
+import cats.implicits._
+import cats.effect.{ConcurrentEffect, Timer}
+import doobie.implicits._
+import org.http4s.implicits._
+import org.http4s.HttpRoutes
+import org.http4s.server.blaze.BlazeServerBuilder
+import sttp.tapir._
+import sttp.tapir.json.circe._
+import sttp.tapir.server.http4s._
+import scala.concurrent.ExecutionContext
+import todo.Models._
+import zio._
+import zio.interop.catz._
 
 object Server {
 
-  val todoApiInfo = Info(
-    title   = "TODO API",
-    version = "0.1.0"
-  )
-  val host     = "localhost"
-  val port     = 8080
-  val basePath = "/v1"
+  def run(implicit cs: ConcurrentEffect[Task], t: Timer[Task]): URIO[Transactional, Unit] = {
+    val serverThreadPool = ExecutionContext.fromExecutorService(Executors.newFixedThreadPool(2))
 
-  case class Todo(
-      id:   Int,
-      name: String,
-      done: Boolean
-  )
-
-  object Todo {
-    implicit val encoder = deriveEncoder[Todo]
-    implicit val decoder = deriveDecoder[Todo]
-  }
-
-  case class CreateTodo(name: String)
-
-  object CreateTodo {
-    implicit val encoder = deriveEncoder[CreateTodo]
-    implicit val decoder = deriveDecoder[CreateTodo]
-
-    val SwaggerModel: Set[Model] = Set(
-      ModelImpl(
-        id          = "CreateTodo",
-        id2         = "CreateTodo",
-        `type`      = Some("object"),
-        description = Some("CreateTodo description"),
-        name        = Some("CreateTodo"),
-        properties = Map(
-          "name" -> StringProperty(
-            required    = true,
-            description = Some("name of the todo item"),
-            enums       = Set()
-          )
-        ),
-        example = Some("""{ "name" : "todo 1" }""")
-      )
-    )
-  }
-
-  case class EmptyResponse()
-
-  object EmptyResponse {
-    implicit val encoder = deriveEncoder[EmptyResponse]
-    implicit val decoder = deriveDecoder[EmptyResponse]
-  }
-
-  case class ErrorResponse(message: String)
-
-  object ErrorResponse {
-    implicit val encoder = deriveEncoder[ErrorResponse]
-    implicit val decoder = deriveDecoder[ErrorResponse]
-  }
-
-  object ErrorHandler extends CirceEntityEncoder {
-    // NOTE: This import clashes with a lot of rho names hence the wrapper object
-    import org.http4s.dsl.io._
-
-    def apply(request: Request[IO]): PartialFunction[Throwable, IO[org.http4s.Response[IO]]] = {
-      case ex: Throwable =>
-        IO(println(s"UNHANDLED: ${ex}\n${ex.getStackTrace.mkString("\n")}")) *>
-          InternalServerError(ErrorResponse("Something went wrong"))
+    Endpoints.createHttp4sRoutes.flatMap { routes =>
+      BlazeServerBuilder
+        .apply[Task](serverThreadPool)
+        .bindHttp(8080, "0.0.0.0")
+        .withHttpApp(routes.orNotFound)
+        .resource
+        .use(_ => UIO.never)
+        .orDie
     }
   }
 
-  def run(transactor: Transactor[IO])(implicit cs: ContextShift[IO], t: Timer[IO]): IO[Unit] = {
-    // NOTE: the import is necessary to get .orNotFound but clashes with a lot of rho names that's why it's imported inside the method
-    import org.http4s.implicits._
-    BlazeServerBuilder[IO]
-      .bindHttp(port, host)
-      .withHttpApp(createRoutes(transactor).orNotFound)
-      .withServiceErrorHandler(ErrorHandler(_))
-      .resource
-      .use(_ => IO.never)
-  }
+  object Endpoints {
+    val listTodos: Endpoint[Unit, Unit, List[Todo], Nothing] = {
+      endpoint.get
+        .in("todo")
+        .out(jsonBody[List[Todo]])
+    }
 
-  def createRoutes(transactor: Transactor[IO])(implicit cs: ContextShift[IO]): HttpRoutes[IO] = {
-    val todoRoutes        = createTodoRoutes(transactor)
-    val swaggerMiddleware = createSwaggerMiddleware
+    val createTodo: Endpoint[CreateTodo, Unit, EmptyResponse, Nothing] = {
+      endpoint.post
+        .in("todo")
+        .in(jsonBody[CreateTodo])
+        .out(jsonBody[EmptyResponse])
+    }
 
-    Router(
-      "/docs"  -> fileService[IO](FileService.Config[IO]("./swagger")),
-      basePath -> todoRoutes.toRoutes(swaggerMiddleware)
-    )
-  }
+    val finishTodo: Endpoint[Int, ErrorResponse, EmptyResponse, Nothing] = {
+      endpoint.put
+        .in("todo" / path[Int]("id"))
+        .out(jsonBody[EmptyResponse])
+        .errorOut(jsonBody[ErrorResponse])
+    }
 
-  def createTodoRoutes(transactor: Transactor[IO]): RhoRoutes[IO] = {
-    new RhoRoutes[IO] with SwaggerSyntax[IO] with CirceInstances with CirceEntityEncoder {
-      // ----------------------------------------------------------------------------------------------------------------------- //
-      //  NOTE: If you run into issues with divergent implicits check out this issue https://github.com/http4s/rho/issues/292   //
-      // ---------------------------------------------------------------------------------------------------------------------- //
-
-      GET / "todo" |>> { () =>
-        sql"select id, name, done from todo".query[Todo].to[List].transact(transactor).flatMap(Ok(_))
-      }
-
-      POST / "todo" ^ jsonOf[IO, CreateTodo] |>> { createTodo: CreateTodo =>
-        sql"insert into todo (name, done) values (${createTodo.name}, 0)".update.run
-          .transact(transactor)
-          .void
-          .flatMap(_ => Ok(EmptyResponse()))
-      }
-
-      POST / "todo" / pathVar[Int] |>> { todoId: Int =>
-        sql"update todo set done = 1 where id = ${todoId}".update.run.transact(transactor).flatMap {
-          case 0 => NotFound(ErrorResponse(s"Todo with id: `${todoId}` not found"))
-          case 1 => Ok(EmptyResponse())
-          case _ =>
-            IO(println(s"Inconsistent data: More than one todo updated in POST /todo/${todoId}")) *>
-              InternalServerError(ErrorResponse("Ooops, something went wrong..."))
+    def createHttp4sRoutes: URIO[Transactional, HttpRoutes[Task]] = {
+      ZIO.service[Trx].map { transactor =>
+        val listRoute = listTodos.toRoutes { _ =>
+          sql"select id, name, done from todo"
+            .query[Todo]
+            .to[List]
+            .transact(transactor)
+            .map[Either[Unit, List[Todo]]](Right(_))
         }
+
+        val createRoute = createTodo.toRoutes { createDto =>
+          sql"insert into todo (name, done) values (${createDto.name}, 0)".update.run
+            .transact(transactor)
+            .unit
+            .as[Either[Unit, EmptyResponse]](Right(EmptyResponse()))
+        }
+
+        val finishRoute = finishTodo.toRoutes { id =>
+          sql"update todo set done = 1 where id = ${id}".update.run
+            .transact(transactor)
+            .flatMap {
+              case 0 => ZIO.succeed(Left(ErrorResponse(s"Todo with id: `${id}` not found")))
+              case 1 => ZIO.succeed(Right(EmptyResponse()))
+              case _ =>
+                ZIO
+                  .effect(println(s"Inconsistent data: More than one todo updated in POST /todo/${id}"))
+                  .as(Left(ErrorResponse("Ooops, something went wrong...")))
+            }
+        }
+
+        listRoute <+> createRoute <+> finishRoute
       }
     }
-  }
-
-  def createSwaggerMiddleware: RhoMiddleware[IO] = {
-    SwaggerSupport
-      .apply[IO]
-      .createRhoMiddleware(
-        swaggerFormats = DefaultSwaggerFormats
-          .withSerializers(typeOf[CreateTodo], CreateTodo.SwaggerModel),
-        apiInfo  = todoApiInfo,
-        host     = Some(s"${host}:${port}"),
-        schemes  = List(Scheme.HTTP),
-        basePath = Some(basePath),
-        security = List(SecurityRequirement("Bearer", List())),
-        securityDefinitions = Map(
-          "Bearer" -> ApiKeyAuthDefinition("Authorization", In.HEADER)
-        )
-      )
   }
 
 }

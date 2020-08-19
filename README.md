@@ -16,14 +16,18 @@ It also exposes swagger api documentation on `/docs`
 
 Start the api with `sbt run`
 
-The api uses the following libraries:
+The api is built using the following libraries:
 
+ * [zio](https://zio.dev/)
+ * [tapir](https://github.com/softwaremill/tapir)
+ * [doobie](https://tpolecat.github.io/doobie/)
+ 
+It additionally uses the following libraries:
+
+ * [http4s](https://http4s.org/)
+ * [sqlite-jdbc](https://github.com/xerial/sqlite-jdbc)
  * [cats](https://typelevel.org/cats/)
  * [cats-effect](https://typelevel.org/cats-effect/)
- * [doobie](https://tpolecat.github.io/doobie/)
- * [http4s](https://http4s.org/)
- * [http4s-rho](https://github.com/http4s/rho)
- * [sqlite-jdbc](https://github.com/xerial/sqlite-jdbc)
  * [scalatest](http://www.scalatest.org/)
 
 ## Exercise description

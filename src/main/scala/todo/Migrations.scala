@@ -1,9 +1,8 @@
 package todo
 
-import cats.effect.IO
-import cats.syntax.functor._
 import doobie.implicits._
-import doobie.Transactor
+import zio._
+import zio.interop.catz._
 
 object Migrations {
 
@@ -17,8 +16,10 @@ object Migrations {
          |""".stripMargin
   }
 
-  def run(transactor: Transactor[IO]): IO[Unit] = {
-    migrationV1.update.run.transact(transactor).void
+  def run: URIO[Transactional, Unit] = {
+    ZIO.service[Trx].flatMap { transactor =>
+      migrationV1.update.run.transact(transactor).unit.orDie
+    }
   }
 
 }

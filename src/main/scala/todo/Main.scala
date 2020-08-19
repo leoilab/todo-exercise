@@ -1,18 +1,28 @@
 package todo
 
-import cats.effect.{ExitCode, IO, IOApp}
 import doobie.Transactor
+import zio._
+import zio.interop.catz._
+import zio.interop.catz.implicits._
 
-object Main extends IOApp {
-  def run(args: List[String]): IO[ExitCode] = {
-    val transactor = Transactor.fromDriverManager[IO](
-      "org.sqlite.JDBC",
-      "jdbc:sqlite:todo.db"
+object Main extends zio.App {
+
+  def run(args: List[String]): URIO[ZEnv, ExitCode] = {
+    val transactor = Transactor.fromDriverManager[Task](
+      driver = "org.sqlite.JDBC",
+      url    = "jdbc:sqlite:todo.db"
     )
 
+    program.provideLayer(ZLayer.succeed(transactor))
+  }
+
+  val program: URIO[Transactional, ExitCode] = {
     for {
-      _ <- Migrations.run(transactor)
-      _ <- Server.run(transactor)
-    } yield ExitCode.Success
+      _ <- Migrations.run
+      transactor <- ZIO.service[Trx]
+      _ <- Task.concurrentEffectWith { implicit ce =>
+        Server.run.provide(Has(transactor))
+      }
+    } yield ExitCode.success
   }
 }
