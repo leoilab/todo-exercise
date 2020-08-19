@@ -11,8 +11,6 @@ GET    | /v1/todo      |         -        | [{ id: Int, name: String, done: Bool
 POST   | /v1/todo      | { name: String } | {}                                      | Create a new todo item
 POST   | /v1/todo/{id} |         -        | {}                                      | Set a todo item to done
 ```
- 
-It also exposes swagger api documentation on `/docs`
 
 Start the api with `sbt run`
 
@@ -46,7 +44,6 @@ POST   | /v1/auth/new  | { username: String, password: String } |        {}     
 
  * Create the necessary sql schema, endpoints and business logic(including data validation).
  * Limit the access to the `/v1/todo` endpoints to authenticated users and authorize the access to the todo items(so each user can only access the todo items created by them)
-    * It's recommended you use `AuthMiddleware` from `http4s` with a bearer token scheme but you are free to implement it differently, just make it secure :)
  * *Optional* write tests to ensure you correctly implemented the specification
  
 ### Design skills
